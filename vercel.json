@@ -1,7 +1,5 @@
 {
-  "functions": {
-    "app/api/transcribe/route.ts": {
-      "maxDuration": 60
-    }
-  }
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "regions": ["iad1"]
 }

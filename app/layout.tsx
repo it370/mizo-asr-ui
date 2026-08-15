@@ -15,8 +15,8 @@ const sans = IBM_Plex_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Mizo ASR — Speech to text",
-  description: "Transcribe spoken Mizo into text. Wav2Vec2 with a KenLM decoder.",
+  title: "Mizo — Speech to text",
+  description: "Turn spoken Mizo into written text. Record up to 30 seconds.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -1,45 +1,81 @@
 import { NextResponse } from "next/server";
 
-export const maxDuration = 60;
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+/** Lambda inference timeout is 90s; keep a buffer under Vercel Hobby's 300s cap. */
+export const maxDuration = 120;
+
+const UPSTREAM_MS = 110_000;
+
+function waitCopy(seconds: unknown) {
+  if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds <= 0) {
+    return "Please try again in a few minutes.";
+  }
+  if (seconds < 60) return "Please try again in less than a minute.";
+  const minutes = Math.ceil(seconds / 60);
+  return minutes === 1 ? "Please try again in about 1 minute." : `Please try again in about ${minutes} minutes.`;
+}
 
 export async function POST(request: Request) {
   const url = process.env.LAMBDA_URL?.replace(/\/$/, "");
   const apiKey = process.env.LAMBDA_API_KEY;
   if (!url || !apiKey) {
+    return NextResponse.json({ error: "The service is not available right now." }, { status: 500 });
+  }
+
+  let audio: unknown;
+  try {
+    ({ audio } = await request.json());
+  } catch {
+    return NextResponse.json({ error: "We could not read that recording." }, { status: 400 });
+  }
+  if (typeof audio !== "string" || !audio) {
+    return NextResponse.json({ error: "Please record audio first." }, { status: 400 });
+  }
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+      },
+      body: JSON.stringify({ audio_b64: audio }),
+      signal: AbortSignal.timeout(UPSTREAM_MS),
+    });
+  } catch (err) {
+    const timedOut = err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
     return NextResponse.json(
-      { error: "Server is missing LAMBDA_URL or LAMBDA_API_KEY." },
-      { status: 500 }
+      { error: timedOut ? "This is taking too long. Please try again." : "We could not complete that request. Please try again." },
+      { status: timedOut ? 504 : 502 }
     );
   }
 
-  let audio_b64: unknown;
+  let payload: Record<string, unknown> = {};
   try {
-    ({ audio_b64 } = await request.json());
+    const parsed = await upstream.json();
+    if (parsed && typeof parsed === "object") payload = parsed as Record<string, unknown>;
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
-  if (typeof audio_b64 !== "string" || !audio_b64) {
-    return NextResponse.json({ error: "Missing audio_b64." }, { status: 400 });
+    return NextResponse.json({ error: "We could not complete that request. Please try again." }, { status: 502 });
   }
 
-  const upstream = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-    },
-    body: JSON.stringify({ audio_b64 }),
-  });
-
-  let payload: unknown;
-  try {
-    payload = await upstream.json();
-  } catch {
-    return NextResponse.json(
-      { error: `Unexpected response from transcription service (HTTP ${upstream.status}).` },
-      { status: 502 }
-    );
+  if (payload.status === "warming_up") {
+    const retry_seconds = typeof payload.eta_seconds === "number" ? payload.eta_seconds : null;
+    return NextResponse.json({ message: waitCopy(retry_seconds), retry_seconds });
   }
 
-  return NextResponse.json(payload, { status: upstream.status });
+  if (upstream.status === 401) {
+    return NextResponse.json({ error: "We could not process this request. Please try again." }, { status: 401 });
+  }
+
+  const text = typeof payload.transcription === "string" ? payload.transcription : "";
+  if (upstream.ok && text) {
+    return NextResponse.json({ text });
+  }
+
+  return NextResponse.json(
+    { error: "We could not transcribe that clip. Please try again." },
+    { status: upstream.ok ? 502 : upstream.status }
+  );
 }

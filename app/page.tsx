@@ -13,7 +13,7 @@ export default function HomePage() {
   const [audio, setAudio] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState("");
   const [text, setText] = useState("");
-  const [warm, setWarm] = useState("");
+  const [notice, setNotice] = useState("");
   const [eta, setEta] = useState<number | null>(null);
   const [error, setError] = useState("");
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -64,10 +64,16 @@ export default function HomePage() {
 
   async function startRecording() {
     setError("");
-    setWarm("");
+    setNotice("");
     setEta(null);
     setText("");
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      setError("Microphone access was blocked. Allow the mic in the browser and try again.");
+      return;
+    }
     streamRef.current = stream;
     const rec = new MediaRecorder(stream);
     chunksRef.current = [];
@@ -117,47 +123,50 @@ export default function HomePage() {
     if (!audio) return;
     setMode("working");
     setError("");
-    setWarm("");
+    setNotice("");
     setEta(null);
     try {
       const { base64, duration } = await wavFor(audio);
       if (duration > MAX_SECONDS) {
-        setError(`Audio is ${duration.toFixed(1)}s. Keep clips under ${MAX_SECONDS} seconds.`);
+        setError(`That clip is ${duration.toFixed(0)} seconds. Please keep recordings under ${MAX_SECONDS} seconds.`);
         setMode("ready");
         return;
       }
       const response = await fetch("/api/transcribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audio_b64: base64 }),
+        body: JSON.stringify({ audio: base64 }),
       });
-      const payload = await response.json();
-      if (response.status === 401) {
-        setError("The transcription service rejected the request.");
+      const raw = await response.text();
+      let payload: { message?: string; retry_seconds?: number | null; text?: string; error?: string } = {};
+      try {
+        payload = raw ? JSON.parse(raw) : {};
+      } catch {
+        setError("This is taking too long. Please try again.");
         setMode("ready");
         return;
       }
-      if (payload?.status === "warming_up") {
-        setWarm(payload.message || "The system is warming up. Please try again shortly.");
-        if (typeof payload.eta_seconds === "number") setEta(payload.eta_seconds);
+      if (typeof payload.retry_seconds === "number" || payload.message) {
+        setNotice(payload.message || "Please try again in a few minutes.");
+        if (typeof payload.retry_seconds === "number") setEta(payload.retry_seconds);
         setMode("ready");
         return;
       }
       if (!response.ok) {
-        setError(payload.error || `Transcription failed (HTTP ${response.status}).`);
+        setError(payload.error || "We could not transcribe that clip. Please try again.");
         setMode("ready");
         return;
       }
-      const result = payload.transcription || payload.message || "";
+      const result = payload.text || "";
       if (!result) {
-        setError(payload.error || "Empty transcription.");
+        setError(payload.error || "We could not hear enough speech. Please record again.");
         setMode("ready");
         return;
       }
       setText(result);
       setMode("ready");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Transcription failed.");
+    } catch {
+      setError("We could not complete that request. Please try again.");
       setMode("ready");
     }
   }
@@ -174,7 +183,7 @@ export default function HomePage() {
             <span className="mizo">Aw leh thusawi ziak chhuahna</span>
           </h1>
         </div>
-        <p className="meta">Wav2Vec2 + KenLM. Record up to 30 seconds. First request after idle may need a few minutes to warm.</p>
+        <p className="meta">Record up to 30 seconds of spoken Mizo.</p>
       </header>
 
       <section className="panel">
@@ -207,7 +216,7 @@ export default function HomePage() {
                 {mode === "recording" ? "Stop" : audioUrl ? "Record again" : "Record"}
               </button>
               <button className="btn primary" type="button" disabled={!audio || mode === "working" || mode === "recording"} onClick={transcribe}>
-                {mode === "working" ? "Transcribing…" : text || warm ? "Transcribe again" : "Transcribe"}
+                {mode === "working" ? "Transcribing…" : text || notice ? "Transcribe again" : "Transcribe"}
               </button>
               <span className="timer">{mode === "recording" ? clock : "00:00"} / 00:30</span>
             </div>
@@ -220,10 +229,10 @@ export default function HomePage() {
           </div>
         </div>
 
-        {warm ? (
+        {notice ? (
           <div className="banner warm">
-            {warm}
-            {eta !== null ? ` Remaining ${Math.floor(eta / 60)}:${String(eta % 60).padStart(2, "0")}.` : ""}
+            {notice}
+            {eta !== null && eta > 0 ? ` About ${Math.floor(eta / 60)}:${String(eta % 60).padStart(2, "0")} left.` : ""}
           </div>
         ) : null}
         {error ? <div className="banner err">{error}</div> : null}
@@ -241,7 +250,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <p className="foot">Audio is sent as 16 kHz mono WAV to the transcription service. Do not send a second request while the first is still running.</p>
+      <p className="foot">Please wait for one transcription to finish before starting another.</p>
     </main>
   );
 }
