@@ -21,6 +21,7 @@ html,
 body {
   margin: 0;
   min-height: 100%;
+  min-height: 100dvh;
   background:
     radial-gradient(1200px 500px at 10% -10%, #e7efe8 0%, transparent 55%),
     radial-gradient(900px 400px at 110% 0%, #f3e2d2 0%, transparent 50%),
@@ -32,6 +33,7 @@ body {
 body {
   font-size: 16px;
   line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
 }
 
 button,
@@ -39,57 +41,64 @@ input {
   font: inherit;
 }
 
+button {
+  touch-action: manipulation;
+}
+
 .page {
-  width: min(920px, calc(100% - 32px));
+  width: 100%;
+  max-width: 920px;
   margin: 0 auto;
-  padding: 16px 0 28px;
+  padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
 }
 
 .top {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 16px;
-  margin-bottom: 14px;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 12px;
+  text-align: center;
 }
 
 h1 {
   font-family: var(--font-display), Georgia, serif;
   font-weight: 560;
-  font-size: clamp(22px, 3.2vw, 28px);
-  line-height: 1.15;
+  font-size: 1.35rem;
+  line-height: 1.2;
   letter-spacing: -0.03em;
   margin: 0;
 }
 
 .mizo {
-  margin-left: 10px;
-  font-size: 15px;
+  display: block;
+  margin-top: 2px;
+  font-size: 0.92rem;
   color: var(--muted);
   font-weight: 400;
   letter-spacing: 0;
 }
 
 .meta {
-  text-align: right;
+  margin: 0;
   color: var(--muted);
-  font-size: 13px;
-  flex-shrink: 0;
+  font-size: 0.8rem;
 }
 
 .panel {
   background: var(--paper-2);
   border: 1px solid var(--line);
-  border-radius: 20px;
+  border-radius: 18px;
   box-shadow: 0 18px 50px rgba(27, 24, 20, 0.06);
-  padding: 20px 22px;
+  padding: 16px;
 }
 
 .stage {
   display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 20px;
-  align-items: center;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  justify-items: center;
+  text-align: center;
 }
 
 .mic-wrap {
@@ -98,8 +107,8 @@ h1 {
 }
 
 .mic {
-  width: 96px;
-  height: 96px;
+  width: 88px;
+  height: 88px;
   border-radius: 50%;
   border: 0;
   background: var(--pine);
@@ -107,10 +116,6 @@ h1 {
   cursor: pointer;
   position: relative;
   box-shadow: 0 10px 24px rgba(19, 44, 34, 0.28);
-}
-
-.mic:hover {
-  background: var(--pine-deep);
 }
 
 .mic.recording {
@@ -124,8 +129,8 @@ h1 {
 }
 
 .mic svg {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
 }
 
 @keyframes pulse {
@@ -138,23 +143,27 @@ h1 {
   }
 }
 
-.controls h2 {
-  font-family: var(--font-display), Georgia, serif;
-  font-size: 18px;
-  margin: 0 0 4px;
+.controls {
+  width: 100%;
 }
 
 .hint {
   color: var(--muted);
-  margin: 0 0 12px;
-  font-size: 13px;
+  margin: 0 0 8px;
+  font-size: 0.84rem;
+}
+
+.timer {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: 0.92rem;
+  margin: 0 0 10px;
 }
 
 .row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
 }
 
 .btn {
@@ -162,12 +171,9 @@ h1 {
   background: #fff;
   color: var(--ink);
   border-radius: 999px;
-  padding: 10px 16px;
+  min-height: 44px;
+  padding: 10px 14px;
   cursor: pointer;
-}
-
-.btn:hover {
-  border-color: #b9b1a4;
 }
 
 .btn.primary {
@@ -176,31 +182,29 @@ h1 {
   color: #f6f1e8;
 }
 
-.btn.primary:hover {
-  background: var(--pine-deep);
-}
-
 .btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
 
-.timer {
-  font-variant-numeric: tabular-nums;
-  color: var(--muted);
-  font-size: 13px;
-  margin-left: 4px;
-}
-
 .player {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
   margin-top: 12px;
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #faf7f1;
+  text-align: left;
+}
+
+.player-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .player-label {
@@ -209,24 +213,36 @@ h1 {
   text-transform: uppercase;
   color: var(--pine);
   font-weight: 600;
-  flex-shrink: 0;
+}
+
+.btn.icon {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 6px;
+  display: inline-grid;
+  place-items: center;
+}
+
+.btn.icon svg {
+  width: 18px;
+  height: 18px;
 }
 
 .player audio {
   width: 100%;
-  height: 36px;
+  height: 40px;
 }
 
-.player.locked {
+.player audio.locked {
   opacity: 0.55;
   pointer-events: none;
 }
 
 .banner {
-  margin-top: 14px;
-  padding: 10px 14px;
+  margin-top: 12px;
+  padding: 10px 12px;
   border-radius: 12px;
-  font-size: 14px;
+  font-size: 0.9rem;
 }
 
 .banner.warm {
@@ -247,6 +263,7 @@ h1 {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   margin-bottom: 8px;
 }
 
@@ -258,54 +275,134 @@ h1 {
   font-weight: 600;
 }
 
+.out-head .btn {
+  min-height: 36px;
+  padding: 6px 14px;
+}
+
 .transcript {
-  min-height: 120px;
-  max-height: min(36vh, 280px);
+  min-height: 7.5rem;
+  max-height: min(38dvh, 260px);
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid var(--line);
   border-radius: 14px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   background: #faf7f1;
-  font-size: 18px;
-  line-height: 1.65;
+  font-size: 1.05rem;
+  line-height: 1.6;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .transcript.empty {
   color: #a39b91;
-  font-size: 15px;
+  font-size: 0.95rem;
 }
 
-.foot {
-  margin-top: 22px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-@media (max-width: 700px) {
-  .stage {
-    grid-template-columns: 1fr;
-    justify-items: center;
-    text-align: center;
+@media (hover: hover) and (pointer: fine) {
+  .mic:hover {
+    background: var(--pine-deep);
   }
 
-  .row {
-    justify-content: center;
+  .mic.recording:hover {
+    background: var(--clay);
+  }
+
+  .btn:hover {
+    border-color: #b9b1a4;
+  }
+
+  .btn.primary:hover {
+    background: var(--pine-deep);
+    border-color: var(--pine-deep);
+  }
+}
+
+@media (min-width: 720px) {
+  .page {
+    padding: 16px 20px 28px;
   }
 
   .top {
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    text-align: center;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: baseline;
+    text-align: left;
+    margin-bottom: 14px;
+  }
+
+  h1 {
+    font-size: clamp(22px, 3.2vw, 28px);
   }
 
   .mizo {
-    display: block;
-    margin: 2px 0 0;
+    display: inline;
+    margin: 0 0 0 10px;
+    font-size: 15px;
   }
 
   .meta {
-    text-align: center;
+    text-align: right;
+    font-size: 13px;
+  }
+
+  .panel {
+    padding: 20px 22px;
+  }
+
+  .stage {
+    grid-template-columns: 120px 1fr;
+    gap: 20px;
+    justify-items: stretch;
+    text-align: left;
+  }
+
+  .mic {
+    width: 96px;
+    height: 96px;
+  }
+
+  .hint {
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+
+  .timer {
+    margin: 0 0 10px;
+    text-align: left;
+  }
+
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .btn {
+    min-height: 40px;
+  }
+
+  .player {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .player-bar {
+    flex-shrink: 0;
+  }
+
+  .player audio {
+    flex: 1;
+    min-width: 160px;
+  }
+
+  .transcript {
+    min-height: 120px;
+    max-height: min(36vh, 280px);
+    font-size: 18px;
+    padding: 14px 16px;
   }
 }

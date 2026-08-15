@@ -135,6 +135,22 @@ export default function HomePage() {
     return wavCacheRef.current;
   }
 
+  async function downloadRecording() {
+    if (!audio) return;
+    const { base64 } = await wavFor(audio);
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    const file = new Blob([bytes], { type: "audio/wav" });
+    const url = URL.createObjectURL(file);
+    const link = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    link.href = url;
+    link.download = `recording-${stamp}.wav`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function transcribe() {
     if (!audio || busyRef.current || recorderRef.current) return;
     busyRef.current = true;
@@ -239,8 +255,10 @@ export default function HomePage() {
           </div>
 
           <div className="controls">
-            <h2>{busy ? "Transcribing" : recording ? "Listening" : audioUrl ? "Recording ready" : "Record"}</h2>
             <p className="hint">{hint}</p>
+            <p className="timer" aria-live="polite">
+              {formatClock(shownSeconds)} / {formatClock(MAX_SECONDS)}
+            </p>
             <div className="row">
               <button className="btn" type="button" disabled={busy} onClick={() => (recording ? stopRecording() : startRecording())}>
                 {recording ? "Stop" : audioUrl ? "Record again" : "Record"}
@@ -248,14 +266,20 @@ export default function HomePage() {
               <button className="btn primary" type="button" disabled={!audio || busy || recording} onClick={transcribe}>
                 {busy ? "Transcribing…" : text || notice ? "Transcribe again" : "Transcribe"}
               </button>
-              <span className="timer">
-                {formatClock(shownSeconds)} / {formatClock(MAX_SECONDS)}
-              </span>
             </div>
             {audioUrl && !recording ? (
-              <div className={`player${busy ? " locked" : ""}`}>
-                <span className="player-label">Recorded</span>
-                <audio controls={!busy} src={audioUrl} preload="metadata" />
+              <div className="player">
+                <div className="player-bar">
+                  <span className="player-label">Recorded</span>
+                  <button className="btn icon" type="button" onClick={downloadRecording} aria-label="Download recording">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M12 4v12" />
+                      <path d="m7 11 5 5 5-5" />
+                      <path d="M5 20h14" />
+                    </svg>
+                  </button>
+                </div>
+                <audio className={busy ? "locked" : ""} controls={!busy} src={audioUrl} preload="metadata" playsInline />
               </div>
             ) : null}
           </div>
@@ -272,8 +296,11 @@ export default function HomePage() {
         <div className="out">
           <div className="out-head">
             <span>Transcription</span>
-            <button className="btn" type="button" disabled={!text || busy} onClick={() => navigator.clipboard.writeText(text)}>
-              Copy
+            <button className="btn icon" type="button" disabled={!text || busy} onClick={() => navigator.clipboard.writeText(text)} aria-label="Copy transcription">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="8" y="8" width="12" height="12" rx="2" />
+                <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+              </svg>
             </button>
           </div>
           <div className={`transcript${text ? "" : " empty"}`}>
