@@ -6,6 +6,23 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 const UPSTREAM_MS = 110_000;
+const MAX_SECONDS = 10;
+
+function wavDurationSeconds(b64: string): number | null {
+  try {
+    const buf = Buffer.from(b64, "base64");
+    if (buf.length < 44) return null;
+    const sampleRate = buf.readUInt32LE(24);
+    const channels = buf.readUInt16LE(22);
+    const bitsPerSample = buf.readUInt16LE(34);
+    const dataSize = buf.readUInt32LE(40);
+    const bytesPerSecond = sampleRate * channels * (bitsPerSample / 8);
+    if (!bytesPerSecond) return null;
+    return dataSize / bytesPerSecond;
+  } catch {
+    return null;
+  }
+}
 
 function waitCopy(seconds: unknown) {
   if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds <= 0) {
@@ -31,6 +48,13 @@ export async function POST(request: Request) {
   }
   if (typeof audio !== "string" || !audio) {
     return NextResponse.json({ error: "Please record audio first." }, { status: 400 });
+  }
+
+  const duration = wavDurationSeconds(audio);
+  const rawBytes = Buffer.from(audio, "base64").length;
+  const tooLong = (duration !== null && duration > MAX_SECONDS + 0.4) || rawBytes > (MAX_SECONDS + 2) * 16000 * 2;
+  if (tooLong) {
+    return NextResponse.json({ error: `Please keep recordings under ${MAX_SECONDS} seconds.` }, { status: 400 });
   }
 
   let upstream: Response;

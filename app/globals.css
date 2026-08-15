@@ -42,39 +42,29 @@ input {
 .page {
   width: min(920px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 36px 0 72px;
+  padding: 16px 0 28px;
 }
 
 .top {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
+  align-items: baseline;
   gap: 16px;
-  margin-bottom: 28px;
-}
-
-.eyebrow {
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  font-size: 11px;
-  color: var(--pine);
-  font-weight: 600;
-  margin: 0 0 8px;
+  margin-bottom: 14px;
 }
 
 h1 {
   font-family: var(--font-display), Georgia, serif;
   font-weight: 560;
-  font-size: clamp(36px, 6vw, 56px);
-  line-height: 0.95;
+  font-size: clamp(22px, 3.2vw, 28px);
+  line-height: 1.15;
   letter-spacing: -0.03em;
   margin: 0;
 }
 
 .mizo {
-  display: block;
-  margin-top: 10px;
-  font-size: 18px;
+  margin-left: 10px;
+  font-size: 15px;
   color: var(--muted);
   font-weight: 400;
   letter-spacing: 0;
@@ -84,7 +74,7 @@ h1 {
   text-align: right;
   color: var(--muted);
   font-size: 13px;
-  max-width: 240px;
+  flex-shrink: 0;
 }
 
 .panel {
@@ -92,13 +82,13 @@ h1 {
   border: 1px solid var(--line);
   border-radius: 20px;
   box-shadow: 0 18px 50px rgba(27, 24, 20, 0.06);
-  padding: 28px;
+  padding: 20px 22px;
 }
 
 .stage {
   display: grid;
-  grid-template-columns: 180px 1fr;
-  gap: 28px;
+  grid-template-columns: 120px 1fr;
+  gap: 20px;
   align-items: center;
 }
 
@@ -108,8 +98,8 @@ h1 {
 }
 
 .mic {
-  width: 132px;
-  height: 132px;
+  width: 96px;
+  height: 96px;
   border-radius: 50%;
   border: 0;
   background: var(--pine);
@@ -134,8 +124,8 @@ h1 {
 }
 
 .mic svg {
-  width: 42px;
-  height: 42px;
+  width: 32px;
+  height: 32px;
 }
 
 @keyframes pulse {
@@ -150,14 +140,14 @@ h1 {
 
 .controls h2 {
   font-family: var(--font-display), Georgia, serif;
-  font-size: 22px;
-  margin: 0 0 6px;
+  font-size: 18px;
+  margin: 0 0 4px;
 }
 
 .hint {
   color: var(--muted);
-  margin: 0 0 18px;
-  font-size: 14px;
+  margin: 0 0 12px;
+  font-size: 13px;
 }
 
 .row {
@@ -206,7 +196,7 @@ h1 {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 16px;
+  margin-top: 12px;
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -227,9 +217,14 @@ h1 {
   height: 36px;
 }
 
+.player.locked {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 .banner {
-  margin-top: 20px;
-  padding: 14px 16px;
+  margin-top: 14px;
+  padding: 10px 14px;
   border-radius: 12px;
   font-size: 14px;
 }
@@ -245,7 +240,7 @@ h1 {
 }
 
 .out {
-  margin-top: 18px;
+  margin-top: 14px;
 }
 
 .out-head {
@@ -264,10 +259,12 @@ h1 {
 }
 
 .transcript {
-  min-height: 140px;
+  min-height: 120px;
+  max-height: min(36vh, 280px);
+  overflow: auto;
   border: 1px solid var(--line);
   border-radius: 14px;
-  padding: 16px 18px;
+  padding: 14px 16px;
   background: #faf7f1;
   font-size: 18px;
   line-height: 1.65;
@@ -296,12 +293,19 @@ h1 {
     justify-content: center;
   }
 
-  .top,
-  .meta {
-    text-align: left;
+  .top {
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    text-align: center;
+  }
+
+  .mizo {
+    display: block;
+    margin: 2px 0 0;
   }
 
   .meta {
-    max-width: none;
+    text-align: center;
   }
 }
