@@ -122,7 +122,8 @@ export default function HomePage() {
     timerRef.current = window.setInterval(() => {
       const seconds = (Date.now() - startedAtRef.current) / 1000;
       setElapsed(Math.min(MAX_SECONDS, seconds));
-      if (seconds >= MAX_SECONDS) stopRecording();
+      // Stop early so MediaRecorder's async flush does not run past 10s.
+      if (seconds >= MAX_SECONDS - 0.25) stopRecording();
     }, 100);
   }
 
@@ -170,16 +171,9 @@ export default function HomePage() {
     setEta(null);
     try {
       const { base64, duration } = await wavFor(audio);
-      if (duration > MAX_SECONDS) {
-        setError(`That clip is over ${MAX_SECONDS} seconds. Please record again.`);
-        setAudio(null);
-        setAudioUrl("");
-        setClipSeconds(0);
-        if (audioUrlRef.current) {
-          URL.revokeObjectURL(audioUrlRef.current);
-          audioUrlRef.current = "";
-        }
-        setMode("idle");
+      if (duration <= 0) {
+        setError("We could not hear enough speech. Please record again.");
+        setMode("ready");
         return;
       }
       const response = await fetch("/api/transcribe", {
