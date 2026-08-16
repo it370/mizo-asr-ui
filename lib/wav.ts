@@ -73,10 +73,14 @@ function toBase64(bytes: ArrayBuffer): string {
   return btoa(binary);
 }
 
-export async function blobToWav16k(blob: Blob, maxSeconds = 10): Promise<{ base64: string; duration: number }> {
+export async function blobToWav16k(
+  blob: Blob,
+  maxSeconds = 10
+): Promise<{ base64: string; duration: number; sourceDuration: number }> {
   const ctx = new AudioContext();
   try {
     const decoded = await ctx.decodeAudioData(await blob.arrayBuffer());
+    const sourceDuration = decoded.duration;
     let mono = mixToMono(decoded);
     const maxSource = Math.floor(maxSeconds * decoded.sampleRate);
     if (mono.length > maxSource) mono = mono.subarray(0, maxSource);
@@ -84,7 +88,7 @@ export async function blobToWav16k(blob: Blob, maxSeconds = 10): Promise<{ base6
     const maxSamples = Math.floor(maxSeconds * TARGET_SR);
     if (resampled.length > maxSamples) resampled = resampled.subarray(0, maxSamples);
     const wav = encodeWavPcm16(resampled, TARGET_SR);
-    return { base64: toBase64(wav), duration: resampled.length / TARGET_SR };
+    return { base64: toBase64(wav), duration: resampled.length / TARGET_SR, sourceDuration };
   } finally {
     await ctx.close();
   }

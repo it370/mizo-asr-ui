@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { blobToWav16k } from "@/lib/wav";
 // TEMP_ZZ_LAMBDA_KEEPALIVE — delete this import and the block tagged below; then delete lib/TEMP_ZZ_lambda_keepalive.tsx
 import { TempZzLambdaKeepaliveChip, useTempZzLambdaKeepalive } from "@/lib/TEMP_ZZ_lambda_keepalive";
 
-const MAX_SECONDS = 10;
+const MAX_RECORD_SECONDS = 10;
+const MAX_UPLOAD_SECONDS = 30;
 
 type Mode = "idle" | "recording" | "ready" | "working";
 
@@ -18,6 +19,8 @@ export default function HomePage() {
   const [mode, setMode] = useState<Mode>("idle");
   const [elapsed, setElapsed] = useState(0);
   const [clipSeconds, setClipSeconds] = useState(0);
+  const [clipLimit, setClipLimit] = useState(MAX_RECORD_SECONDS);
+  const [clipSource, setClipSource] = useState<"record" | "upload">("record");
   const [audio, setAudio] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState("");
   const [text, setText] = useState("");
@@ -31,6 +34,8 @@ export default function HomePage() {
   const wavCacheRef = useRef<{ key: Blob; base64: string; duration: number } | null>(null);
   const audioUrlRef = useRef("");
   const startedAtRef = useRef(0);
+  const clipLimitRef = useRef(MAX_RECORD_SECONDS);
+  const fileRef = useRef<HTMLInputElement | null>(null);
   const busyRef = useRef(false);
   const transcribeRef = useRef<() => void>(() => {});
   const [tempZzKeepaliveReset, setTempZzKeepaliveReset] = useState(0); // TEMP_ZZ_LAMBDA_KEEPALIVE
@@ -103,7 +108,7 @@ export default function HomePage() {
       if (event.data.size) chunksRef.current.push(event.data);
     };
     rec.onstop = () => {
-      const recorded = Math.min(MAX_SECONDS, (Date.now() - startedAtRef.current) / 1000);
+      const recorded = Math.min(MAX_RECORD_SECONDS, (Date.now() - startedAtRef.current) / 1000);
       const blob = new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" });
       if (blob.size > 0) {
         keepAudio(blob, recorded);
@@ -121,28 +126,58 @@ export default function HomePage() {
     setMode("recording");
     timerRef.current = window.setInterval(() => {
       const seconds = (Date.now() - startedAtRef.current) / 1000;
-      setElapsed(Math.min(MAX_SECONDS, seconds));
+      setElapsed(Math.min(MAX_RECORD_SECONDS, seconds));
       // Stop early so MediaRecorder's async flush does not run past 10s.
-      if (seconds >= MAX_SECONDS - 0.25) stopRecording();
+      if (seconds >= MAX_RECORD_SECONDS - 0.25) stopRecording();
     }, 100);
   }
 
-  function keepAudio(blob: Blob, seconds: number) {
+  function keepAudio(blob: Blob, seconds: number, source: "record" | "upload" = "record") {
+    const limit = source === "upload" ? MAX_UPLOAD_SECONDS : MAX_RECORD_SECONDS;
     wavCacheRef.current = null;
     if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
     const url = URL.createObjectURL(blob);
     audioUrlRef.current = url;
+    clipLimitRef.current = limit;
+    setClipLimit(limit);
+    setClipSource(source);
     setAudio(blob);
     setAudioUrl(url);
-    setClipSeconds(Math.min(MAX_SECONDS, seconds));
+    setClipSeconds(Math.min(limit, seconds));
     setMode("ready");
   }
 
   async function wavFor(blob: Blob) {
     if (wavCacheRef.current?.key === blob) return wavCacheRef.current;
-    const converted = await blobToWav16k(blob);
+    const converted = await blobToWav16k(blob, clipLimitRef.current);
     wavCacheRef.current = { key: blob, ...converted };
     return wavCacheRef.current;
+  }
+
+  async function onPickFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || busyRef.current || recorderRef.current) return;
+    setError("");
+    setNotice("");
+    setEta(null);
+    setText("");
+    try {
+      const converted = await blobToWav16k(file, MAX_UPLOAD_SECONDS);
+      if (converted.sourceDuration > MAX_UPLOAD_SECONDS) {
+        setError(`That clip is ${converted.sourceDuration.toFixed(0)} seconds. Please keep uploads under ${MAX_UPLOAD_SECONDS} seconds.`);
+        return;
+      }
+      if (converted.duration <= 0) {
+        setError("We could not read that audio file.");
+        return;
+      }
+      keepAudio(file, converted.sourceDuration, "upload");
+      wavCacheRef.current = { key: file, ...converted };
+      void transcribe(file);
+    } catch {
+      setError("We could not read that audio file.");
+    }
   }
 
   async function downloadRecording() {
@@ -161,8 +196,9 @@ export default function HomePage() {
     URL.revokeObjectURL(url);
   }
 
-  async function transcribe() {
-    if (!audio || busyRef.current || recorderRef.current) return;
+  async function transcribe(nextAudio?: Blob) {
+    const clip = nextAudio ?? audio;
+    if (!clip || busyRef.current || recorderRef.current) return;
     setTempZzKeepaliveReset((n) => n + 1); // TEMP_ZZ_LAMBDA_KEEPALIVE
     busyRef.current = true;
     setMode("working");
@@ -170,7 +206,7 @@ export default function HomePage() {
     setNotice("");
     setEta(null);
     try {
-      const { base64, duration } = await wavFor(audio);
+      const { base64, duration } = await wavFor(clip);
       if (duration <= 0) {
         setError("We could not hear enough speech. Please record again.");
         setMode("ready");
@@ -203,7 +239,7 @@ export default function HomePage() {
       }
       const result = payload.text || "";
       if (!result) {
-        setError(payload.error || "We could not hear enough speech. Please record again.");
+        setError(payload.error || "We could not hear enough speech. Please try again.");
         setMode("ready");
         return;
       }
@@ -224,8 +260,8 @@ export default function HomePage() {
   const hint = busy
     ? "Transcription in progress."
     : recording
-      ? `Recording will stop at ${MAX_SECONDS} seconds.`
-      : `Speak Mizo into the microphone. Up to ${MAX_SECONDS} seconds.`;
+      ? `Recording will stop at ${MAX_RECORD_SECONDS} seconds.`
+      : `Speak Mizo, or upload a clip up to ${MAX_UPLOAD_SECONDS} seconds.`;
 
   return (
     <main className="page">
@@ -234,7 +270,7 @@ export default function HomePage() {
           Speech to text
           <span className="mizo">Aw leh thusawi ziak chhuahna</span>
         </h1>
-        <p className="meta">Mizo ṭawng · up to {MAX_SECONDS} seconds</p>
+        <p className="meta">Mizo ṭawng · record {MAX_RECORD_SECONDS}s · upload {MAX_UPLOAD_SECONDS}s</p>
       </header>
 
       <section className="panel">
@@ -262,20 +298,30 @@ export default function HomePage() {
           <div className="controls">
             <p className="hint">{hint}</p>
             <p className="timer" aria-live="polite">
-              {formatClock(shownSeconds)} / {formatClock(MAX_SECONDS)}
+              {formatClock(shownSeconds)} / {formatClock(recording ? MAX_RECORD_SECONDS : clipLimit)}
             </p>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="audio/*,.wav,.mp3,.m4a,.ogg,.webm,.aac,.flac"
+              hidden
+              onChange={onPickFile}
+            />
             <div className="row">
               <button className="btn" type="button" disabled={busy} onClick={() => (recording ? stopRecording() : startRecording())}>
                 {recording ? "Stop" : audioUrl ? "Record again" : "Record"}
               </button>
-              <button className="btn primary" type="button" disabled={!audio || busy || recording} onClick={transcribe}>
+              <button className="btn" type="button" disabled={busy || recording} onClick={() => fileRef.current?.click()}>
+                Upload
+              </button>
+              <button className="btn primary" type="button" disabled={!audio || busy || recording} onClick={() => transcribe()}>
                 {busy ? "Transcribing…" : text || notice ? "Transcribe again" : "Transcribe"}
               </button>
             </div>
             {audioUrl && !recording ? (
               <div className="player">
                 <div className="player-bar">
-                  <span className="player-label">Recorded</span>
+                  <span className="player-label">{clipSource === "upload" ? "Uploaded" : "Recorded"}</span>
                   <button className="btn icon" type="button" onClick={downloadRecording} aria-label="Download recording">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="M12 4v12" />

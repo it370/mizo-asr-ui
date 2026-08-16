@@ -16,7 +16,7 @@ const sans = IBM_Plex_Sans({
 
 export const metadata: Metadata = {
   title: "Mizo — Speech to text",
-  description: "Turn spoken Mizo into written text. Record up to 10 seconds.",
+  description: "Turn spoken Mizo into written text. Record up to 10 seconds, or upload up to 30.",
 };
 
 export const viewport: Viewport = {

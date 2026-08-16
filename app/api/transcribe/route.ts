@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 const UPSTREAM_MS = 110_000;
-const MAX_SECONDS = 10;
+const MAX_SECONDS = 30;
 
 function wavDurationSeconds(b64: string): number | null {
   try {
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
   const rawBytes = Buffer.from(audio, "base64").length;
   const tooLong = (duration !== null && duration > MAX_SECONDS + 0.4) || rawBytes > (MAX_SECONDS + 2) * 16000 * 2;
   if (tooLong) {
-    return NextResponse.json({ error: `Please keep recordings under ${MAX_SECONDS} seconds.` }, { status: 400 });
+    return NextResponse.json({ error: `Please keep clips under ${MAX_SECONDS} seconds.` }, { status: 400 });
   }
 
   let upstream: Response;
