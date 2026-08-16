@@ -280,24 +280,37 @@ h1 {
   padding: 6px 14px;
 }
 
-.transcript {
+.out-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+textarea.transcript {
+  display: block;
+  width: 100%;
+  resize: vertical;
   min-height: 7.5rem;
-  max-height: min(38dvh, 260px);
+  max-height: min(38dvh, 280px);
   overflow: auto;
   -webkit-overflow-scrolling: touch;
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 12px 14px;
   background: #faf7f1;
+  color: var(--ink);
+  font: inherit;
   font-size: 1.05rem;
   line-height: 1.6;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 
-.transcript.empty {
+textarea.transcript:disabled {
+  opacity: 0.7;
+}
+
+textarea.transcript.empty,
+textarea.transcript::placeholder {
   color: #a39b91;
-  font-size: 0.95rem;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -399,7 +412,7 @@ h1 {
     min-width: 160px;
   }
 
-  .transcript {
+  textarea.transcript {
     min-height: 120px;
     max-height: min(36vh, 280px);
     font-size: 18px;

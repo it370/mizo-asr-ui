@@ -24,6 +24,8 @@ export default function HomePage() {
   const [audio, setAudio] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState("");
   const [text, setText] = useState("");
+  const [baseline, setBaseline] = useState("");
+  const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState("");
   const [eta, setEta] = useState<number | null>(null);
   const [error, setError] = useState("");
@@ -37,6 +39,7 @@ export default function HomePage() {
   const clipLimitRef = useRef(MAX_RECORD_SECONDS);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const busyRef = useRef(false);
+  const dirtyRef = useRef(false);
   const transcribeRef = useRef<() => void>(() => {});
   const [tempZzKeepaliveReset, setTempZzKeepaliveReset] = useState(0); // TEMP_ZZ_LAMBDA_KEEPALIVE
   const tempZzKeepaliveMs = useTempZzLambdaKeepalive({
@@ -90,6 +93,8 @@ export default function HomePage() {
     setNotice("");
     setEta(null);
     setText("");
+    setBaseline("");
+    dirtyRef.current = false;
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -162,6 +167,8 @@ export default function HomePage() {
     setNotice("");
     setEta(null);
     setText("");
+    setBaseline("");
+    dirtyRef.current = false;
     try {
       const converted = await blobToWav16k(file, MAX_UPLOAD_SECONDS);
       if (converted.sourceDuration > MAX_UPLOAD_SECONDS) {
@@ -243,7 +250,10 @@ export default function HomePage() {
         setMode("ready");
         return;
       }
-      setText(result);
+      if (!dirtyRef.current) {
+        setText(result);
+        setBaseline(result);
+      }
       setMode("ready");
     } catch {
       setError("We could not complete that request. Please try again.");
@@ -253,9 +263,45 @@ export default function HomePage() {
     }
   }
 
+  async function submitCorrection() {
+    const edited = text.trim();
+    if (!audio || !edited || edited === baseline.trim() || sending || busyRef.current || recorderRef.current) return;
+    setSending(true);
+    setError("");
+    setNotice("");
+    try {
+      const { base64 } = await wavFor(audio);
+      const response = await fetch("/api/contribute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audio: base64, text: edited }),
+      });
+      const raw = await response.text();
+      let payload: { error?: string } = {};
+      try {
+        payload = raw ? JSON.parse(raw) : {};
+      } catch {
+        payload = {};
+      }
+      if (!response.ok) {
+        setError(payload.error || "We could not send that correction. Please try again.");
+        return;
+      }
+      setBaseline(edited);
+      dirtyRef.current = false;
+      setNotice("Thank you. Your correction was sent.");
+    } catch {
+      setError("We could not send that correction. Please try again.");
+    } finally {
+      setSending(false);
+    }
+  }
+
   transcribeRef.current = transcribe;
   const busy = mode === "working";
   const recording = mode === "recording";
+  const dirty = Boolean(text.trim() && text.trim() !== baseline.trim());
+  dirtyRef.current = dirty;
   const shownSeconds = recording ? elapsed : clipSeconds;
   const hint = busy
     ? "Transcription in progress."
@@ -347,16 +393,26 @@ export default function HomePage() {
         <div className="out">
           <div className="out-head">
             <span>Transcription</span>
-            <button className="btn icon" type="button" disabled={!text || busy} onClick={() => navigator.clipboard.writeText(text)} aria-label="Copy transcription">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="8" y="8" width="12" height="12" rx="2" />
-                <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
-              </svg>
-            </button>
+            <div className="out-actions">
+              <button className="btn" type="button" disabled={!dirty || sending || busy || recording || !audio} onClick={submitCorrection}>
+                {sending ? "Sending…" : "Send correction"}
+              </button>
+              <button className="btn icon" type="button" disabled={!text || busy} onClick={() => navigator.clipboard.writeText(text)} aria-label="Copy transcription">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="8" y="8" width="12" height="12" rx="2" />
+                  <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+                </svg>
+              </button>
+            </div>
           </div>
-          <div className={`transcript${text ? "" : " empty"}`}>
-            {text || "Mizo text will appear here."}
-          </div>
+          <textarea
+            className={`transcript${text ? "" : " empty"}`}
+            value={text}
+            placeholder="Mizo text will appear here."
+            disabled={busy || recording || sending}
+            onChange={(event) => setText(event.target.value)}
+            rows={5}
+          />
         </div>
       </section>
       <TempZzLambdaKeepaliveChip remainingMs={tempZzKeepaliveMs} visible={Boolean(audio) && !recording} />

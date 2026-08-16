@@ -20,6 +20,8 @@ npm run dev
    | --- | --- |
    | `LAMBDA_URL` | Function URL, e.g. `https://xxxx.lambda-url.us-east-1.on.aws/` |
    | `LAMBDA_API_KEY` | Same value as the Lambda `API_KEY` |
+   | `ASR_ADMIN_URL` | ASR annotation API, e.g. `http://127.0.0.1:8101` |
+   | `ASR_ADMIN_API_KEY` | Same value as asr-tool `PUBLIC_CONTRIBUTE_API_KEY` |
 
    Do not prefix these with `NEXT_PUBLIC_`.
 3. Deploy. Node 20+ is required. The function runs in `iad1` (N. Virginia) next to the `us-east-1` Lambda.
