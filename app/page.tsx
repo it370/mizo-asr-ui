@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { blobToWav16k } from "@/lib/wav";
+// TEMP_ZZ_LAMBDA_KEEPALIVE — delete this import and the block tagged below; then delete lib/TEMP_ZZ_lambda_keepalive.tsx
+import { TempZzLambdaKeepaliveChip, useTempZzLambdaKeepalive } from "@/lib/TEMP_ZZ_lambda_keepalive";
 
 const MAX_SECONDS = 10;
 
@@ -30,6 +32,13 @@ export default function HomePage() {
   const audioUrlRef = useRef("");
   const startedAtRef = useRef(0);
   const busyRef = useRef(false);
+  const transcribeRef = useRef<() => void>(() => {});
+  const [tempZzKeepaliveReset, setTempZzKeepaliveReset] = useState(0); // TEMP_ZZ_LAMBDA_KEEPALIVE
+  const tempZzKeepaliveMs = useTempZzLambdaKeepalive({
+    enabled: Boolean(audio) && mode !== "working" && mode !== "recording",
+    resetKey: tempZzKeepaliveReset,
+    onFire: () => transcribeRef.current(),
+  });
 
   useEffect(() => {
     return () => {
@@ -153,6 +162,7 @@ export default function HomePage() {
 
   async function transcribe() {
     if (!audio || busyRef.current || recorderRef.current) return;
+    setTempZzKeepaliveReset((n) => n + 1); // TEMP_ZZ_LAMBDA_KEEPALIVE
     busyRef.current = true;
     setMode("working");
     setError("");
@@ -213,6 +223,7 @@ export default function HomePage() {
     }
   }
 
+  transcribeRef.current = transcribe;
   const busy = mode === "working";
   const recording = mode === "recording";
   const shownSeconds = recording ? elapsed : clipSeconds;
@@ -308,6 +319,7 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      <TempZzLambdaKeepaliveChip remainingMs={tempZzKeepaliveMs} visible={Boolean(audio) && !recording} />
     </main>
   );
 }
