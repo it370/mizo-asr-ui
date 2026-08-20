@@ -48,6 +48,8 @@ export default function HomePage() {
     onFire: () => transcribeRef.current(),
   });
 
+  const languageDisplayText = process.env.NEXT_PUBLIC_LANGUAGE_DISPLAY_NAME ?? "Mizo";
+
   useEffect(() => {
     return () => {
       stopRecording(true);
@@ -307,16 +309,21 @@ export default function HomePage() {
     ? "Transcription in progress."
     : recording
       ? `Recording will stop at ${MAX_RECORD_SECONDS} seconds.`
-      : `Speak Mizo, or upload a clip up to ${MAX_UPLOAD_SECONDS} seconds.`;
+      : `Speak ${languageDisplayText}, or upload a clip up to ${MAX_UPLOAD_SECONDS} seconds.`;
 
   return (
     <main className="page">
       <header className="top">
         <h1>
-          Speech to text
-          <span className="mizo">Aw leh thusawi ziak chhuahna</span>
+          RAW Speech to text (ASR)
+          {
+            languageDisplayText === "Hmar" ?
+              <span className="mizo">Rawl le thuhril ziek suokna</span>
+              :
+              <span className="mizo">Aw leh thusawi ziak chhuahna</span>
+          }
         </h1>
-        <p className="meta">Mizo ṭawng · record {MAX_RECORD_SECONDS}s · upload {MAX_UPLOAD_SECONDS}s</p>
+        <p className="meta">{languageDisplayText} ṭawng · record {MAX_RECORD_SECONDS}s · upload {MAX_UPLOAD_SECONDS}s</p>
       </header>
 
       <section className="panel">
@@ -408,7 +415,7 @@ export default function HomePage() {
           <textarea
             className={`transcript${text ? "" : " empty"}`}
             value={text}
-            placeholder="Mizo text will appear here."
+            placeholder={`${languageDisplayText} text will appear here.`}
             disabled={busy || recording || sending}
             onChange={(event) => setText(event.target.value)}
             rows={5}

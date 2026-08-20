@@ -25,6 +25,7 @@ function wavDurationSeconds(b64: string): number | null {
 export async function POST(request: Request) {
   const adminUrl = process.env.ASR_ADMIN_URL?.replace(/\/$/, "");
   const adminKey = process.env.ASR_ADMIN_API_KEY;
+  const language = process.env.NEXT_PUBLIC_LANGUAGE ?? "lus";
   if (!adminUrl || !adminKey) {
     return NextResponse.json({ error: "Corrections are not available right now." }, { status: 500 });
   }
@@ -54,6 +55,7 @@ export async function POST(request: Request) {
   const form = new FormData();
   form.append("file", new Blob([new Uint8Array(wav)], { type: "audio/wav" }), "clip.wav");
   form.append("text", cleaned);
+  form.append("language", language);
 
   let upstream: Response;
   try {
